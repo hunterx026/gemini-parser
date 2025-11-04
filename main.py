@@ -11,7 +11,8 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-MODEL_NAME = "gemini-1.5-flash"
+# ← usa un modelo vigente
+MODEL_NAME = "gemini-2.5-flash"
 
 PROMPT = """
 Eres un extractor de tablas para un videojuego de liga.
@@ -50,24 +51,21 @@ def call_gemini_with_image_bytes(img_bytes: bytes, mime_type: str):
             },
         ]
     )
-    # a veces resp.text viene None, devolvemos todo
     return resp.text or ""
 
 @app.post("/parse-stats")
 async def parse_stats(file: UploadFile = File(...)):
     img_bytes = await file.read()
-    # detectar tipo real
     mime = file.content_type or "image/png"
     try:
         raw = call_gemini_with_image_bytes(img_bytes, mime)
         if not raw:
             return JSONResponse(
-                content={"ok": False, "error": "Modelo no devolvió texto"},
+                content={"ok": False, "error": "El modelo no devolvió texto"},
                 status_code=500,
             )
         return JSONResponse(content={"ok": True, "data": raw})
     except Exception as e:
-        # aquí sí devolvemos el error de verdad
         return JSONResponse(
             content={"ok": False, "error": repr(e)},
             status_code=500,
