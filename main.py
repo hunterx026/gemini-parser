@@ -39,21 +39,36 @@ Reglas:
 - Los nombres de las claves deben ser EXACTAMENTE esos.
 """
 
-def call_gemini_with_image_bytes(img_bytes: bytes):
+def call_gemini_with_image_bytes(img_bytes: bytes, mime_type: str):
     model = genai.GenerativeModel(MODEL_NAME)
     resp = model.generate_content(
         [
             PROMPT,
-            {"mime_type": "image/png", "data": img_bytes}
+            {
+                "mime_type": mime_type,
+                "data": img_bytes,
+            },
         ]
     )
-    return resp.text
+    # a veces resp.text viene None, devolvemos todo
+    return resp.text or ""
 
 @app.post("/parse-stats")
 async def parse_stats(file: UploadFile = File(...)):
     img_bytes = await file.read()
+    # detectar tipo real
+    mime = file.content_type or "image/png"
     try:
-        raw = call_gemini_with_image_bytes(img_bytes)
+        raw = call_gemini_with_image_bytes(img_bytes, mime)
+        if not raw:
+            return JSONResponse(
+                content={"ok": False, "error": "Modelo no devolvió texto"},
+                status_code=500,
+            )
         return JSONResponse(content={"ok": True, "data": raw})
     except Exception as e:
-        return JSONResponse(content={"ok": False, "error": str(e)}, status_code=500)
+        # aquí sí devolvemos el error de verdad
+        return JSONResponse(
+            content={"ok": False, "error": repr(e)},
+            status_code=500,
+        )
